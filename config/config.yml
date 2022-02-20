@@ -1,0 +1,20 @@
+postgres:
+  pg_url: 'postgres://user:secret@localhost:5432/myapp'
+  max_open_conn: 25
+  max_idle_time: 10
+
+redis:
+  address: 'localhost:6379'
+  password: ''
+
+app:
+  env: 'dev'
+  name: 'myapp'
+  version: 1
+  http:
+    host: 127.0.0.1
+    port: 8080
+  auth:
+    jwt_secret: abc
+    password_salt: aboba
+
