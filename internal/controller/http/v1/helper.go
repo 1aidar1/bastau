@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -20,18 +21,34 @@ func writeJSONOkMsg(c *gin.Context, msg interface{}) {
 	})
 }
 
-func invalidInputMsg(c *gin.Context) {
+func invalidInput(c *gin.Context) {
 	c.JSON(http.StatusBadRequest, gin.H{
 		jsonMsgKey: "invalid input",
 	})
 }
+func invalidInputMsg(c *gin.Context, msg interface{}) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		jsonMsgKey: msg,
+	})
+}
+func notFoundMsg(c *gin.Context, msg interface{}) {
+	c.JSON(http.StatusNotFound, gin.H{
+		jsonMsgKey: msg,
+	})
+}
 
-func intParam(c *gin.Context, key string) int {
+func serverErrorMsg(c *gin.Context) {
+	c.JSON(http.StatusInternalServerError, gin.H{
+		jsonMsgKey: "error occurred",
+	})
+}
+
+func intParam(c *gin.Context, key string) (int, error) {
 	str := c.Param(key)
 	i, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		writeJSONMsg(c, http.StatusBadRequest, "Bad request. Can't parse params.")
+		return -1, errors.New("can't parse int param")
 	}
-	return int(i)
+	return int(i), nil
 
 }

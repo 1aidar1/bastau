@@ -26,7 +26,8 @@ func Run(cfg *config.Config, l logger.LoggerI) {
 	//	l.Fatal(fmt.Errorf("app - Run - postgres.New: %w", err))
 	//}
 	//defer pg.Close()
-	db, err := openDB(cfg)
+	db, err := openDB(cfg, l)
+	defer db.Close()
 	if err != nil {
 		l.Fatal("Can't connect to DB ", err)
 	}
@@ -74,7 +75,7 @@ func Run(cfg *config.Config, l logger.LoggerI) {
 	}
 }
 
-func openDB(cfg *config.Config) (*pgxpool.Pool, error) {
+func openDB(cfg *config.Config, l logger.LoggerI) (*pgxpool.Pool, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -84,7 +85,7 @@ func openDB(cfg *config.Config) (*pgxpool.Pool, error) {
 	}
 	conf.MaxConns = int32(cfg.PG.PoolMax)
 	conf.MaxConnIdleTime = time.Minute * time.Duration(cfg.PG.MaxIdleTime)
-
+	conf.ConnConfig.Logger = l
 	pool, err := pgxpool.ConnectConfig(ctx, conf)
 	if err != nil {
 		return nil, err

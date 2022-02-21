@@ -2,85 +2,129 @@ package repository
 
 import (
 	"1aidar1/bastau/go-api/internal/entity"
-	"1aidar1/bastau/go-api/pkg/logger"
+	"1aidar1/bastau/go-api/internal/repository/postgres"
 	"context"
-	"database/sql"
 	"errors"
+	"fmt"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"strings"
 	"time"
 )
 
 type UserRepo struct {
-	db     *pgxpool.Pool
-	logger logger.LoggerI
+	db *pgxpool.Pool
+	//logger *logger.LoggerI
+	dbc postgres.Querier
 }
 
 const users_table = "users"
 
-var _ UsersRepoI = UserRepo{}
+var _ UsersRepoI = &UserRepo{}
 
-func NewUsersRepo(db *pgxpool.Pool) *UserRepo {
+func NewUsersRepo(db *pgxpool.Pool, sqlc postgres.Querier) *UserRepo {
 	return &UserRepo{
-		db: db,
+		//logger: l,
+		db:  db,
+		dbc: sqlc,
 	}
 }
 
-func (u UserRepo) GetById(ctx context.Context, id int) (*entity.User, error) {
-	query := `SELECT id, name FROM ` + users_table + ` WHERE id = $1`
-	var user entity.User
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	err := u.db.QueryRow(ctx, query, id).Scan(
-		&user.ID,
-		&user.Name,
-	)
+func (u *UserRepo) GetById(ctx context.Context, id int) (entity.User, error) {
+	row, err := u.dbc.GetUserById(ctx, int64(id))
+	user := entity.User{
+		ID:    int(row.ID),
+		Name:  row.Name,
+		Email: row.Email,
+		Role:  string(row.Role),
+		Phone: row.Phone,
+	}
+
 	if err != nil {
 		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrRecordNotFound
+		case errors.Is(err, pgx.ErrNoRows):
+			return entity.EmptyUser, ErrRecordNotFound
 		default:
-			return nil, err
+			return entity.EmptyUser, err
 		}
 	}
-	return &user, nil
+	return user, nil
 }
 
-func (u UserRepo) Register(ctx context.Context, user entity.User) error {
-	q := `INSERT INTO ` + users_table +
-		`(name,email,phone,password,is_male, country_id,city_id,date_of_birth,created_at,last_visit_at) 
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`
-
-	args := []interface{}{
-		user.Name,
-		user.Email,
-		user.Phone,
-		user.Password,
-		user.IsMale,
-		user.CountryId,
-		user.CityId,
-		user.DateOfBirth,
-		time.Now(),
-		time.Now(),
+func (u *UserRepo) Register(ctx context.Context, user entity.User) error {
+	args := postgres.RegisterUserParams{
+		Name:     user.Name,
+		Email:    strings.ToLower(user.Email),
+		Phone:    user.Phone,
+		Role:     postgres.Role(user.Role),
+		Password: user.Password,
 	}
-	_, err := u.db.Exec(ctx, q, args...)
+	_, err := u.dbc.RegisterUser(ctx, args)
+	fmt.Println(err)
 	if err != nil {
-		u.logger.Warn(err)
-		return err
+		switch {
+		case err.Error() == pgerrcode.DuplicateColumn:
+			return ErrRecordNotFound
+		default:
+			return err
+		}
 	}
 	return nil
 }
 
-func (u UserRepo) GetByCredentials(ctx context.Context, email, password string) (entity.User, error) {
+func (u *UserRepo) GetByToken(ctx context.Context, hash []byte) (entity.User, error) {
+	args := postgres.GetUserByTokenParams{
+		Hash:   hash,
+		Scope:  postgres.TokensScopeAuth,
+		Expiry: time.Now(),
+	}
+	userRow, err := u.dbc.GetUserByToken(ctx, args)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return entity.EmptyUser, ErrRecordNotFound
+		default:
+			return entity.EmptyUser, err
+		}
+	}
+	return entity.User{
+		ID:    int(userRow.ID),
+		Name:  userRow.Name,
+		Email: userRow.Email,
+		Phone: userRow.Phone,
+		Role:  string(userRow.Role),
+	}, nil
+}
+
+func (u *UserRepo) GetByCredentials(ctx context.Context, email, password string) (entity.User, error) {
+	args := postgres.GetUserByCredentialsParams{
+		Email:    email,
+		Password: []byte(password),
+	}
+	user, err := u.dbc.GetUserByCredentials(ctx, args)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return entity.EmptyUser, ErrRecordNotFound
+		default:
+			return entity.EmptyUser, err
+		}
+	}
+
+	return entity.User{
+		ID:    int(user.ID),
+		Name:  user.Name,
+		Email: user.Email,
+	}, nil
+}
+
+func (u *UserRepo) GetByRefreshToken(ctx context.Context, refreshToken string) (entity.User, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (u UserRepo) GetByRefreshToken(ctx context.Context, refreshToken string) (entity.User, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u UserRepo) Verify(ctx context.Context, userID int, code string) error {
+func (u *UserRepo) Verify(ctx context.Context, userID int, code string) error {
 	//TODO implement me
 	panic("implement me")
 }

@@ -6,7 +6,6 @@ import (
 	"1aidar1/bastau/go-api/pkg/auth"
 	"1aidar1/bastau/go-api/pkg/hash"
 	"context"
-	"time"
 )
 
 //go:generate mockgen -source=service.go -destination=mocks/mock.go
@@ -14,14 +13,15 @@ import (
 // TODO handle "not found" errors
 
 type UserSignUpInput struct {
-	Name        string
-	Email       string
-	Phone       string
-	Password    string
-	IsMale      bool
-	CountryId   int
-	CityId      int
-	DateOfBirth time.Time
+	Name     string
+	Email    string
+	Phone    string
+	Password string
+	Role     string
+	//IsMale      bool
+	//CountryId   int
+	//CityId      int
+	//DateOfBirth time.Time
 }
 
 type UserSignInInput struct {
@@ -39,14 +39,18 @@ type Tokens struct {
 
 type UsersI interface {
 	GetUserById(ctx context.Context, id int) (entity.User, error)
+	GetUserByToken(ctx context.Context, hash []byte) (entity.User, error)
 	Register(ctx context.Context, input UserSignUpInput) error
-	SignIn(ctx context.Context, input UserSignInInput) (Tokens, error)
-	RefreshTokens(ctx context.Context, refreshToken string) (Tokens, error)
-	Verify(ctx context.Context, userID int, hash string) error
+	SignIn(ctx context.Context, input UserSignInInput) (entity.Token, error)
+	CreateToken(ctx context.Context, userId int, scope string) (entity.Token, error)
+}
+
+type TokenI interface {
 }
 
 type Services struct {
-	Users UsersI
+	Users  UsersI
+	Tokens TokenI
 }
 
 type Deps struct {
@@ -69,7 +73,7 @@ type Deps struct {
 }
 
 func NewServices(deps Deps) *Services {
-	usersService := NewUsersService(deps.Repos.Users, deps.Hasher, deps.TokenManager)
+	usersService := NewUsersService(deps.Repos.Users, deps.Repos.Tokens, deps.Hasher, deps.TokenManager)
 
 	return &Services{
 		Users: usersService,

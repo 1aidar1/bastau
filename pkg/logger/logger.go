@@ -1,5 +1,10 @@
 package logger
 
+import (
+	"context"
+	"github.com/jackc/pgx/v4"
+)
+
 type LoggerI interface {
 	Debug(msg ...interface{})
 	Debugf(format string, args ...interface{})
@@ -11,4 +16,7 @@ type LoggerI interface {
 	Errorf(format string, args ...interface{})
 	Fatal(msg ...interface{})
 	Fatalf(format string, args ...interface{})
+
+	//for pgx
+	Log(ctx context.Context, level pgx.LogLevel, msg string, data map[string]interface{})
 }

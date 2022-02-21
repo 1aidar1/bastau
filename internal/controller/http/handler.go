@@ -44,9 +44,17 @@ func (h *Handler) Init(cfg *config.Config) *gin.Engine {
 	return router
 }
 
+func JSONMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.Next()
+	}
+}
+
 func (h *Handler) initAPI(router *gin.Engine) {
 
 	handlerV1 := v1.NewHandler(h.services, h.tokenManager)
+	//router.Use(JSONMiddleware())
 	api := router.Group("/api")
 	{
 		handlerV1.Init(api)

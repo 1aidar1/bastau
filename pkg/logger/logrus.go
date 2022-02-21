@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"context"
+	"github.com/jackc/pgx/v4"
 	"github.com/sirupsen/logrus"
 )
 
@@ -9,6 +11,7 @@ type Logger struct {
 }
 
 func NewLogger(l *logrus.Logger) *Logger {
+	//l.SetReportCaller(true)
 	return &Logger{
 		logger: l,
 	}
@@ -54,4 +57,8 @@ func (l Logger) Fatal(msg ...interface{}) {
 
 func (l Logger) Fatalf(format string, args ...interface{}) {
 	l.logger.Fatalf(format, args...)
+}
+
+func (l Logger) Log(ctx context.Context, level pgx.LogLevel, msg string, data map[string]interface{}) {
+	l.logger.Warnf(msg, data)
 }
