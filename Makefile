@@ -15,3 +15,8 @@ migrate_goto:
 
 migrate_drop:
 	migrate -path=migrations -database=postgres://user:secret@localhost/myapp?sslmode=disable drop
+	
+init: 
+	migrate -path=migrations -database=postgres://user:secret@localhost/myapp?sslmode=disable up
+	sqlc generate 
+	go run cmd/main.go
